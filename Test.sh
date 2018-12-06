@@ -1,65 +1,90 @@
 #!/bin/bash
 
-createPool2() { # $1 Path1 / $2 Path2 / $3 admin / $4 group
-  if [ ! -e $2 ]
-  then
+# Nom : Hauwaert
+# Prénom : Maxime
+# Matricule : 461714
+
+run() {
+: '
+  Parcourt tous les répertoires personnels du PoolV1
+  Arguments :
+    $1 Path_To_PoolV1
+    $2 Path_To_PoolV2
+    $3 Admin
+    $4 Group
+'
+  if [ ! -e $2 ];then
+  # Si le PoolV2 n'existe pas
     mkdir -p $2
   fi
-  setPermissions $2 $3 $4 750
 
-  for dir in $1*/
-  do
-    if [ -e $dir ]
-    then
+  setPermissions $2 $3 $4 750 # 750 = rwxr-x---
+
+  for dir in $1*/;do
+
+    if [ -e $dir ];then
       dir_name=${dir#$1}
-      author=${dir_name%/}
-      if ! id $author >/dev/null 2>&1
-      then
-        author=$(stat -c '%U' $dir)
+      owner=${dir_name%/}
+
+      if ! id $owner >/dev/null 2>&1;then
+      # Si le nom du répertoire personnel ne correspond pas à un utilisateur existant sur la machine
+        owner=$(stat -c '%U' $dir)
       fi
-      mkdir -p $2$author
-      setPermissions $2$author $3 $4 750
-      fileExplorer $dir $2 $3 $4 $author
+
+      mkdir -p $2$owner
+      setPermissions $2$owner $3 $4 750 # 750 = rwxr-x---
+      poolV2_Creator $dir $2 $3 $4 $owner
     fi
   done
 }
 
-fileExplorer() { # $1 Path1 / $2 Path2 / $3 admin / $4 group / $5 author
-  for file in $1*
-  do
-    if [ -d $file ]
-    then
-      fileExplorer $file/ $2 $3 $4 $5
-    elif [ -f $file ]
-    then
+poolV2_Creator() {
+: '
+  Explore les répertoires personnels du PoolV1 en créant le PoolV2
+  Arguments :
+    $1 Path_To_PoolV1
+    $2 Path_To_PoolV2
+    $3 Admin
+    $4 Group
+    $5 Owner
+'
+  for file in $1*;do
+
+    if [ -d $file ];then
+      poolV2_Creator $file/ $2 $3 $4 $5
+
+    elif [ -f $file ];then
       filename=${file#$1}
       name=${filename#*_}
-      date=${filename%_*}
-      year=$(date -d @$date +"%Y")
-      month=$(date -d @$date +"%m")
-      day=$(date -d @$date +"%d")
-      path=$2$5/$year/$month/$day/
-      mkdir -p $path
-      setPermissions $2$5/$year $3 $4 750
-      setPermissions $2$5/$year/$month $3 $4 750
-      setPermissions $2$5/$year/$month/$day $3 $4 750
+      path=$2$5/
+      time=${filename%_*}
+      date=$(date -d @$time +"%Y %m %d")
+
+      for temp in $date;do
+        path=$path$temp/
+        mkdir -p $path
+        setPermissions $path $3 $4 750 # 750 = rwxr-x---
+      done
+
       cp $file $path
-      mv $path$filename $path$name
-      setPermissions $path$name $author $4 640
+      mv $path$filename $path$name # Changement du nom du fichier
+      setPermissions $path$name $owner $4 640 # 640 = rw-r-----
     fi
   done
 }
 
-setPermissions() { # $1 file / $2 file_owner / $3 group / $4 octal_permission
-  sudo chown $2 $1
-  sudo chgrp $3 $1
-  sudo chmod $4 $1
+setPermissions() {
+: '
+  Change les permissions du fichier en paramètre
+  Arguments :
+    $1 File
+    $2 Owner
+    $3 Group
+    $4 Octal_Permission
+'
+  chown $2 $1
+  chgrp $3 $1
+  chmod $4 $1
 }
 
-if [ $# -ge 4 ] && [ -d $1 ]
-then
-  createPool2 $1 $2 $3 $4
-
-else
-    echo "Invalid Arguments"
-fi
+run $1 $2 $3 $4
