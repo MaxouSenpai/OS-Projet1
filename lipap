@@ -6,7 +6,7 @@
 
 run() {
 : '
-  Parcourt tous les répertoires personnels du PoolV1
+  Parcourt les répertoires personnels du PoolV1
   Arguments :
     $1 Path_To_PoolV1
     $2 Path_To_PoolV2
@@ -14,7 +14,6 @@ run() {
     $4 Group
 '
   if [ ! -e $2 ];then
-  # Si le PoolV2 n'existe pas
     mkdir -p $2
   fi
 
@@ -33,34 +32,34 @@ run() {
 
       mkdir -p $2$owner
       setPermissions $2$owner $3 $4 750 # 750 = rwxr-x---
-      poolV2_Creator $dir $2 $3 $4 $owner
+      poolV2_Creator $dir $2 $3 $4
     fi
   done
 }
 
 poolV2_Creator() {
 : '
-  Explore les répertoires personnels du PoolV1 en créant le PoolV2
+  Explore tout un répertoire du PoolV1 en créant le PoolV2
   Arguments :
     $1 Path_To_PoolV1
     $2 Path_To_PoolV2
     $3 Admin
     $4 Group
-    $5 Owner
 '
   for file in $1*;do
 
     if [ -d $file ];then
-      poolV2_Creator $file/ $2 $3 $4 $5
+      poolV2_Creator $file/ $2 $3 $4
 
     elif [ -f $file ];then
+      owner=$(stat -c '%U' $file)
       filename=${file#$1}
       name=${filename#*_}
       path=$2$5/
       time=${filename%_*}
       date=$(date -d @$time +"%Y %m %d")
 
-      for temp in $date;do
+      for temp in $owner $date;do
         path=$path$temp/
         mkdir -p $path
         setPermissions $path $3 $4 750 # 750 = rwxr-x---
@@ -87,4 +86,9 @@ setPermissions() {
   chmod $4 $1
 }
 
-run $1 $2 $3 $4
+if [ $EUID -ne 0 ];then
+  echo "Root permissions required"
+  exit 1
+else
+  run $@
+fi
